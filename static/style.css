@@ -1,0 +1,105 @@
+/* Every color, and why it is here. No gray text: neutral text is pure black on white. */
+:root {
+  --ink: #000;          /* all neutral text */
+  --paper: #fff;        /* the page */
+  --rule: #b8b8b8;      /* borders and row lines only, never text */
+  --band: #f3f3f3;      /* the header row of a table, behind black text */
+  --accent: #0a49b8;    /* links and the main button: a strong blue, legible on white, not cyan */
+  --accent-ink: #fff;   /* text on the main button */
+  --good: #0a6b2c;      /* a video found */
+  --wait: #8a4600;      /* waiting for a budget or the GPU */
+  --bad: #b00020;       /* failed, nothing found */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 17px/1.45 system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+a { color: var(--accent); }
+
+.top {
+  display: flex;
+  align-items: baseline;
+  gap: 2rem;
+  padding: 1rem 2vw;
+  border-bottom: 2px solid var(--ink);
+}
+.top h1 { margin: 0; font-size: 30px; font-weight: 800; }
+.top h1 a { color: var(--ink); text-decoration: none; }
+.top nav { display: flex; gap: 1.5rem; font-size: 18px; font-weight: 600; }
+
+main { padding: 1rem 2vw; display: grid; gap: 1.25rem; }
+
+.card { border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1.25rem; }
+h2 { margin: 0 0 0.75rem; font-size: 24px; font-weight: 800; }
+h3 { margin: 1.25rem 0 0.25rem; font-size: 21px; font-weight: 800; }
+
+.field { font-weight: 700; font-size: 17px; }
+label.field { display: block; margin-bottom: 0.35rem; }
+
+textarea {
+  width: 100%;
+  font: 18px/1.4 system-ui, sans-serif;
+  color: var(--ink);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+}
+textarea::placeholder { color: var(--ink); opacity: 1; font-style: italic; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 0.75rem; }
+.hint { margin: 0.6rem 0 0; }
+
+button, select {
+  font: 600 17px system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 750; }
+button:disabled { cursor: not-allowed; border-style: dashed; }
+button.small { font-size: 15px; padding: 0.15rem 0.55rem; }
+
+.segments { display: inline-flex; }
+.segments button { border-radius: 0; margin-left: -1px; min-width: 2.6rem; font-size: 18px; font-variant-numeric: tabular-nums; }
+.segments button:first-child { border-radius: 6px 0 0 6px; }
+.segments button:last-child { border-radius: 0 6px 6px 0; }
+.segments button[aria-checked="true"] { background: var(--ink); color: var(--paper); font-weight: 800; }
+
+.status { font-size: 19px; font-weight: 700; margin: 0.25rem 0 0.5rem; }
+.good { color: var(--good); font-weight: 700; }
+.wait { color: var(--wait); font-weight: 700; }
+.bad { color: var(--bad); font-weight: 700; }
+
+.reading { margin: 0 0 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reading .value { font-weight: 700; }
+
+table.rows { width: 100%; border-collapse: collapse; table-layout: auto; }
+table.rows th, table.rows td {
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+table.rows th { background: var(--band); font-size: 16px; font-weight: 800; }
+table.rows td.num, table.rows th.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.rows td.song { font-size: 18px; font-weight: 750; }
+table.rows td.artist { font-size: 18px; font-weight: 600; }
+table.rows td.clip { max-width: 22vw; overflow: hidden; text-overflow: ellipsis; }
+table.rows td.actions { text-align: right; }
+table.rows td.actions button + button { margin-left: 0.4rem; }
+table.setup td:first-child { font-weight: 700; width: 18rem; }
+
+.playlist { margin-top: 1.25rem; padding-top: 1rem; border-top: 2px solid var(--ink); }
+.playlist .link { font-size: 22px; font-weight: 800; }
+
+footer { padding: 1rem 2vw 2rem; border-top: 1px solid var(--rule); }
+code { font-size: 16px; }

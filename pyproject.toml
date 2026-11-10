@@ -1,0 +1,18 @@
+[project]
+name = "yt-playlist-maker"
+version = "0.1.0"
+description = "Songs most like each line of a list, as one YouTube playlist"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.1",
+    "requests>=2.32",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

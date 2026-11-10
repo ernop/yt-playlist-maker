@@ -1,0 +1,8 @@
+{
+  "port": 8020,
+  "listenbrainz_token": "",
+  "youtube_api_key": "",
+  "google_client_id": "",
+  "google_client_secret": "",
+  "language_model": "gemma4:31b"
+}

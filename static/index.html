@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YouTube playlist maker</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <h1><a href="/">YouTube playlist maker</a></h1>
+    <nav>
+      <a href="#earlier">Earlier lists</a>
+      <a href="#setup">Setup</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="new" class="card">
+      <h2>New list</h2>
+      <label for="lines" class="field">One line each: a singer, a band, an era, a genre, or words</label>
+      <textarea id="lines" rows="8" spellcheck="true" placeholder="Nina Simone&#10;80s synth pop&#10;something for a rainy Sunday morning"></textarea>
+      <div class="controls">
+        <span class="field">Songs per line</span>
+        <span id="songs" class="segments" role="radiogroup" aria-label="Songs per line"></span>
+        <button id="find" class="primary">Find songs</button>
+        <span id="new-error" class="bad"></span>
+      </div>
+      <p class="hint">A line starting <code>artist:</code> is that artist, without the language model. At most <span id="max-lines"></span> lines.</p>
+    </section>
+
+    <section id="list" class="card" hidden></section>
+
+    <section id="earlier" class="card">
+      <h2>Earlier lists</h2>
+      <table class="rows">
+        <thead><tr><th class="num">List</th><th>Made</th><th>Lines</th><th>State</th><th>Playlist</th></tr></thead>
+        <tbody id="earlier-rows"></tbody>
+      </table>
+    </section>
+
+    <section id="setup" class="card">
+      <h2>Setup</h2>
+      <table class="rows setup">
+        <tbody id="setup-rows"></tbody>
+      </table>
+      <div class="controls" id="account"></div>
+      <p class="hint">How to get the token, the key and the sign-in client: <code>docs/SETUP.md</code> in this app's folder.</p>
+    </section>
+  </main>
+
+  <footer>
+    Songs from <a href="https://listenbrainz.org">ListenBrainz</a> and <a href="https://musicbrainz.org">MusicBrainz</a> (CC0),
+    videos from <a href="https://www.wikidata.org">Wikidata</a> (CC0) and <a href="https://www.youtube.com">YouTube</a>.
+    &middot; <a href="https://github.com/ernop/yt-playlist-maker/blob/main/PRIVACY.md">Privacy</a>
+    &middot; <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
