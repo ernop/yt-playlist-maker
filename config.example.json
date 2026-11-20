@@ -4,5 +4,11 @@
   "youtube_api_key": "",
   "google_client_id": "",
   "google_client_secret": "",
-  "language_model": "gemma4:31b"
+  "language_model": "gemma4:31b",
+  "sync_url": "",
+  "sync_key": "",
+  "sync_playlist_id": "",
+  "sync_title": "Favorite Songs",
+  "sync_visibility": "unlisted",
+  "sync_minutes": 15
 }

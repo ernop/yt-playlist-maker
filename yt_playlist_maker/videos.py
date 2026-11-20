@@ -141,7 +141,7 @@ def refresh(key: str) -> dict:
     last_day = store.iso(net.now() - timedelta(days=KEEP_DAYS))
     with store.db() as con:
         rows = [dict(r) for r in con.execute(
-            "SELECT * FROM videos WHERE yt_checked IS NOT NULL AND yt_checked < ?", (cutoff,))]
+            "SELECT * FROM videos WHERE yt_checked IS NOT NULL AND video_id IS NOT NULL AND yt_checked < ?", (cutoff,))]
     if not rows:
         return {'checked': 0, 'gone': 0, 'deleted': 0}
     try:

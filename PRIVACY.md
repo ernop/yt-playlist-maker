@@ -26,9 +26,13 @@ It sets no cookies, has no accounts of its own, and collects nothing about anyon
   names his MetaBrainz account to MetaBrainz.
 - **YouTube** (Google), with the app's API key: video ids to check, artists' channel addresses, and searches of
   a song's artist and title.
-- **YouTube** (Google), signed in as him, only when he presses "Make the playlist on YouTube" or "Add the new
-  songs to the playlist": a new playlist with the visibility he picked (unlisted unless he picks private or
-  public), its title and description, made from his lines, and the songs' videos.
+- **YouTube** (Google), signed in as him, when he presses "Make the playlist on YouTube" / "Add the missing
+  songs to the playlist" or enables optional encrypted library sync: creates or updates the playlist with the
+  visibility he picked, and (when sync is enabled) reads items in that playlist to merge newly added songs back
+  into his encrypted library snapshot.
+- **Configured sync host** (optional, only when `sync_url` and `sync_key` are set in `config.local.json`): sends
+  only the derived authentication token (`X-Voice-Wei-Sync-Token`) and an AES-256-GCM ciphertext blob (`VWS1`);
+  the encryption key never leaves his devices.
 - The language model that reads his lines runs on this computer; the lines are sent to no AI service.
 
 Nothing is sold or shared with anyone else.

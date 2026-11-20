@@ -10,6 +10,7 @@
   <header class="top">
     <h1><a href="/">YouTube playlist maker</a></h1>
     <nav>
+      <a href="#sync">Synced library</a>
       <a href="#earlier">Earlier lists</a>
       <a href="#setup">Setup</a>
     </nav>
@@ -17,19 +18,56 @@
 
   <main>
     <section id="new" class="card">
-      <h2>New list</h2>
-      <label for="lines" class="field">One line each: a singer, a band, an era, a genre, or words</label>
-      <textarea id="lines" rows="8" spellcheck="true" placeholder="Nina Simone&#10;80s synth pop&#10;something for a rainy Sunday morning"></textarea>
-      <div class="controls">
-        <span class="field">Songs per line</span>
-        <span id="songs" class="segments" role="radiogroup" aria-label="Songs per line"></span>
-        <button id="find" class="primary">Find songs</button>
-        <span id="new-error" class="bad"></span>
+      <div class="card-head">
+        <h2>New list</h2>
+        <span id="mode-switch" class="segments" role="radiogroup" aria-label="List mode">
+          <button type="button" id="mode-similar" role="radio" aria-checked="true">Similar songs</button>
+          <button type="button" id="mode-direct" role="radio" aria-checked="false">From a song list</button>
+        </span>
       </div>
-      <p class="hint">A line starting <code>artist:</code> is that artist, without the language model. At most <span id="max-lines"></span> lines.</p>
+
+      <div id="similar-form">
+        <label for="lines" class="field">One line each: a singer, a band, an era, a genre, or words</label>
+        <textarea id="lines" rows="8" spellcheck="true" placeholder="Nina Simone&#10;80s synth pop&#10;something for a rainy Sunday morning"></textarea>
+        <div class="controls">
+          <span class="field">Songs per line</span>
+          <span id="songs" class="segments" role="radiogroup" aria-label="Songs per line"></span>
+          <button type="button" id="find" class="primary">Find songs</button>
+          <span id="new-error" class="bad"></span>
+        </div>
+        <p class="hint">A line starting <code>artist:</code> is that artist, without the language model. At most <span id="max-lines"></span> lines.</p>
+      </div>
+
+      <div id="direct-form" hidden>
+        <label for="direct-text" class="field">Paste exported JSON (voice-wei), YouTube video or playlist links, or Artist - Song lines</label>
+        <textarea id="direct-text" rows="8" spellcheck="false" placeholder="https://www.youtube.com/watch?v=...&#10;Nina Simone - Sinnerman&#10;or choose an exported .json file below"></textarea>
+        <div class="input-grid">
+          <label class="field-group">
+            <span class="field">Playlist title</span>
+            <input type="text" id="direct-title" class="text-input" placeholder="Favorite Songs">
+          </label>
+          <label class="field-group">
+            <span class="field">Existing YouTube playlist URL or ID (optional, appends missing songs)</span>
+            <input type="text" id="direct-target" class="text-input" placeholder="Leave blank to make a new playlist">
+          </label>
+        </div>
+        <div class="controls">
+          <button type="button" id="direct-file-btn">Choose .json / .txt file</button>
+          <input type="file" id="direct-file-input" accept=".json,.txt,application/json,text/plain" hidden>
+          <button type="button" id="import-btn" class="primary">Import songs</button>
+          <span id="direct-file-name"></span>
+          <span id="direct-error" class="bad"></span>
+        </div>
+        <p class="hint">Up to <span id="max-direct-songs"></span> songs per import. Video IDs are checked 50 at a time (1 YouTube unit per 50); no language model or ListenBrainz calls.</p>
+      </div>
     </section>
 
     <section id="list" class="card" hidden></section>
+
+    <section id="sync" class="card">
+      <h2>Synced library</h2>
+      <div id="sync-body"></div>
+    </section>
 
     <section id="earlier" class="card">
       <h2>Earlier lists</h2>
@@ -45,7 +83,7 @@
         <tbody id="setup-rows"></tbody>
       </table>
       <div class="controls" id="account"></div>
-      <p class="hint">How to get the token, the key and the sign-in client: <code>docs/SETUP.md</code> in this app's folder.</p>
+      <p class="hint">How to get the token, the key, the sign-in client, and encrypted sync: <code>docs/SETUP.md</code> in this app's folder.</p>
     </section>
   </main>
 

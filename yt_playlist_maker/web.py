@@ -7,7 +7,7 @@ from html import escape
 
 from flask import Flask, abort, jsonify, redirect, request, send_from_directory
 
-from . import google_auth, listenbrainz, lists, net, playlists, store, worker
+from . import google_auth, importing, listenbrainz, lists, net, playlists, store, sync, worker
 from .config import ROOT, Config
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ def create(cfg: Config) -> Flask:
     @app.errorhandler(ValueError)
     @app.errorhandler(lists.Failed)
     @app.errorhandler(google_auth.SignInNeeded)
+    @app.errorhandler(sync.SyncError)
     def refused(exc):
         return jsonify({'error': str(exc)}), 400
 
@@ -60,15 +61,32 @@ def create(cfg: Config) -> Flask:
                 'google_client': bool(cfg.google_client_id and cfg.google_client_secret),
                 'signed_in': google_auth.signed_in(),
                 'language_model': cfg.language_model,
+                'sync_configured': sync.configured(cfg),
             },
             'youtube_left': net.youtube_left(),
+            'sync': sync.status(cfg),
             'lists': lists.summaries(),
-            'limits': {'lines': lists.MAX_LINES, 'line_chars': lists.MAX_LINE_CHARS, 'songs': list(lists.SONGS)},
+            'limits': {
+                'lines': lists.MAX_LINES,
+                'line_chars': lists.MAX_LINE_CHARS,
+                'songs': list(lists.SONGS),
+                'direct_songs': importing.MAX_DIRECT_SONGS,
+            },
         })
 
     @app.post('/api/lists')
     def new_list():
         body = request.get_json()
+        mode = str(body.get('mode', 'similar'))
+        if mode == 'direct':
+            list_id = lists.create_direct(
+                str(body.get('text', '')),
+                title=str(body.get('title', '')),
+                target_playlist=str(body.get('target_playlist', '')),
+            )
+            return jsonify({'id': list_id}), 201
+        if mode != 'similar':
+            raise ValueError(f'Unknown list mode: {mode}')
         list_id = lists.create(str(body.get('text', '')), int(body.get('songs', 3)))
         return jsonify({'id': list_id}), 201
 
@@ -84,8 +102,11 @@ def create(cfg: Config) -> Flask:
 
     @app.post('/api/lists/<int:list_id>/read-again')
     def read_again(list_id):
-        lists.get(list_id)
-        lists.set_step(list_id, 'reading')
+        whole = lists.get(list_id)
+        if whole.get('mode') == 'direct':
+            lists.set_step(list_id, 'videos')
+        else:
+            lists.set_step(list_id, 'reading')
         return jsonify({'ok': True})
 
     @app.post('/api/picks/<int:pick_id>/swap')
@@ -107,8 +128,28 @@ def create(cfg: Config) -> Flask:
     def make_playlist(list_id):
         if not google_auth.signed_in():
             raise google_auth.SignInNeeded('Sign in to YouTube first')
-        playlists.start(list_id, str(request.get_json().get('visibility', 'unlisted')))
+        body = request.get_json()
+        playlists.start(
+            list_id,
+            str(body.get('visibility', 'unlisted')),
+            custom_title=str(body.get('title', '')),
+            target_playlist=str(body.get('target_playlist', '')),
+        )
         return jsonify({'ok': True})
+
+    @app.get('/api/sync')
+    def sync_info():
+        return jsonify({
+            'status': sync.status(cfg),
+            'songs': sync.songs(cfg),
+        })
+
+    @app.post('/api/sync/now')
+    def sync_now():
+        if not sync.configured(cfg):
+            raise sync.SyncError('Set sync_url and sync_key in config.local.json first (docs/SETUP.md)')
+        result = sync.run(cfg, force=True)
+        return jsonify({'ok': True, 'status': result, 'songs': sync.songs(cfg)})
 
     @app.get('/google/signin')
     def google_signin():

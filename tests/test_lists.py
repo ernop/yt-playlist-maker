@@ -195,3 +195,76 @@ def test_a_playlist_link_unchecked_for_30_days_is_dropped(monkeypatch, cfg):
     assert lists.get(fresh)['playlist']['youtube_id'] == f'PL{fresh}'
     gone = lists.get(old)['playlist']
     assert gone['youtube_id'] is None and 'YouTube library' in gone['error']
+
+
+def test_playlist_save_sets_step_failed_on_signin_error(monkeypatch, cfg):
+    list_id = made_list([song('1', 'A', 'a1')])
+    with_videos(list_id, ['v1'])
+    playlists.start(list_id, 'unlisted')
+    monkeypatch.setattr(google_auth, 'access_token', lambda cfg: (_ for _ in ()).throw(
+        google_auth.SignInNeeded('Your YouTube sign-in has ended; sign in again')))
+    worker.save(cfg, list_id)
+    failed = lists.get(list_id)['playlist']
+    assert failed['step'] == 'failed'
+    assert 'sign in again' in failed['error']
+
+
+def test_playlist_save_skips_404_unavailable_videos_and_continues(monkeypatch, cfg):
+    list_id = made_list([song('1', 'A', 'a1'), song('2', 'B', 'b1'), song('3', 'C', 'c1')])
+    with_videos(list_id, ['okVid000001', 'goneVid0002', 'okVid000003'])
+    monkeypatch.setattr(google_auth, 'access_token', lambda cfg: 'token')
+    monkeypatch.setattr(youtube, 'create_playlist', lambda *a: 'PLskip000001')
+    added = []
+
+    def add(token, pid, vid, pos):
+        if vid == 'goneVid0002':
+            raise net.ServiceError('youtube', 404, 'Video not found')
+        added.append((vid, pos))
+
+    monkeypatch.setattr(youtube, 'add_to_playlist', add)
+    playlists.start(list_id, 'unlisted')
+    worker.save(cfg, list_id)
+    done = lists.get(list_id)['playlist']
+    assert done['step'] == 'saved'
+    assert done['added'] == 2
+    assert done['skipped'] == 1
+    assert added == [('okVid000001', 0), ('okVid000003', 1)]
+    assert videos.known()['2']['state'] == 'gone'
+
+
+def test_direct_list_import_checks_videos_and_appends_to_existing_playlist(monkeypatch, cfg):
+    raw = json.dumps({
+        'format': 'voice-wei-library',
+        'version': 1,
+        'title': 'Phone Favorites',
+        'songs': [
+            {'videoId': 'playVid0001', 'name': 'Roads', 'artist': 'Portishead', 'year': '1994', 'durationSeconds': 303},
+            {'videoId': 'deadVid0002', 'name': 'Missing', 'artist': 'Unknown'},
+        ],
+    })
+    list_id = lists.create_direct(raw, target_playlist='https://www.youtube.com/playlist?list=PLtarget0000001')
+    whole = lists.get(list_id)
+    assert whole['mode'] == 'direct' and whole['step'] == 'videos'
+    assert whole['target_playlist_id'] == 'PLtarget0000001'
+
+    monkeypatch.setattr(youtube, 'videos', lambda ids, key='', keep=False, token='': {
+        'playVid0001': {'title': 'Portishead - Roads', 'channel': 'Portishead', 'channel_id': 'UC1',
+                        'duration_s': 303, 'playable': True},
+    })
+    worker.advance(cfg, list_id)
+    ready = lists.get(list_id)
+    assert ready['step'] == 'ready'
+    picks = ready['lines'][0]['picks']
+    assert picks[0]['video']['state'] == 'found'
+    assert picks[1]['video']['state'] == 'gone'
+
+    monkeypatch.setattr(google_auth, 'access_token', lambda cfg: 'token')
+    monkeypatch.setattr(youtube, 'playlist_videos', lambda token, pid: ['already0001'])
+    added = []
+    monkeypatch.setattr(youtube, 'add_to_playlist', lambda token, pid, vid, pos: added.append((pid, vid, pos)))
+    playlists.start(list_id, 'unlisted')
+    worker.save(cfg, list_id)
+    done = lists.get(list_id)['playlist']
+    assert done['step'] == 'saved'
+    assert done['youtube_id'] == 'PLtarget0000001'
+    assert added == [('PLtarget0000001', 'playVid0001', 1)]

@@ -18,14 +18,24 @@ only.
 - 2026-11-10, asked how to get an artist's top songs now that ListenBrainz gates them behind a user token, he
   chose "Use a ListenBrainz token from my MetaBrainz account; I'll paste it into config.local.json" (decision 2).
 - 2026-11-10, asked whether the repository is public or private, he chose public (decision 5).
+- 2026-11-20: asked to export his ~900 starred favorites from `voice-wei` (Lyrics tab on his phone browser) into
+  YouTube playlists on this computer and keep his two music locations (phone `voice-wei` and desktop Firefox
+  YouTube playlists) working together generally; he chose both direct song-list import and optional client-side
+  encrypted two-way sync (safe: YouTube removals never auto-unstar `voice-wei` favorites) (decisions 6 and 7).
 
 ## What he sees
 
-One page, `http://yt-playlist-maker.localhost` (`127.0.0.1:8020`). Its state is in its URL (`/?list=<id>`).
+One page, `http://yt-playlist-maker.localhost` (`127.0.0.1:8020`). Its state is in its URL (`/?list=<id>` and
+`?mode=direct`).
 
-1. **The list.** A box, one line each, at most 20 lines of 200 characters (the worst case below is sized on 20),
-   and how many songs each line gets: 2, 3, 4 or 5 (3 at first). "Find songs" starts the work. A line starting
-   `artist:` is taken as that artist without asking the language model. Repeated lines count once.
+1. **The list.** A mode switch picks between **Similar songs** (the original 20-line prompt mode, 2 to 5 songs per
+   line) and **From a song list** (direct import of up to 5,000 songs from an exported `voice-wei-library` JSON
+   file, generic JSON, YouTube video/playlist links or IDs, or plain `Artist - Song` lines, with an optional
+   custom title and optional existing YouTube playlist URL/ID to append to without duplicates). Direct lists skip
+   the language model and ListenBrainz completely; imported YouTube IDs are checked 50 at a time (1 unit per 50).
+2. **Synced library.** When `sync_url` and `sync_key` are set in `config.local.json`, shows favorites, synced,
+   waiting, and unavailable counts, the synced YouTube playlist link, last pull/push timestamps, **Sync now**, and
+   a searchable favorites table.
 2. **How each line was read**, under the line: an artist (its MusicBrainz name and description), or tags and
    years, with the example artists the model named. An artist name that several MusicBrainz artists share is
    taken as the one most listened to on ListenBrainz; the others are offered beside it.
@@ -165,6 +175,18 @@ every 5 minutes, or at once with "Try now". Trial on 2026-11-09: 8 lines read in
 4. **Search is the last step**: its 50 a day is the tightest limit in the app.
 5. **A new repository, `yt-playlist-maker`** (his suggestion, 2026-11-09), **public** (his choice, 2026-11-10):
    the User-Agent's contact address is the repository, which MetaBrainz can then read.
+6. **Direct song-list import alongside Similar songs** (2026-11-20): accepts `voice-wei-library` JSON, generic
+   JSON, YouTube video/playlist URLs/IDs, and plain `Artist - Song` lines (up to 5,000 songs), supports custom
+   titles and appending to an existing YouTube playlist, and skips unavailable 404 videos during playlist saves
+   instead of halting the batch. Failed playlist saves (such as an expired 7-day Testing OAuth token) transition
+   to `step = 'failed'` so the page shows the error and a Resume/Sign-in path rather than staying stuck in `saving`.
+7. **Encrypted two-way library sync** (his choice, 2026-11-20): client-side AES-256-GCM + HKDF-SHA256 (`VWS1`,
+   `salt = "voice-wei-sync-v1"`) against a `voice-wei` host's `proxy.php?sync=library` slot. Background polling
+   checks the sync host with `If-None-Match` every `sync_minutes` (default 15, returning 304 when unchanged; 0
+   YouTube units) and checks the target YouTube playlist at most once an hour unless favorites changed or "Sync
+   now" is pressed (for 900 songs: 24 x 18 = 432 units/day max, leaving >4,500 units/day for additions). Songs
+   added to the YouTube playlist on the computer merge into `voice-wei` favorites when `added_at_ms` is newer than
+   any unstar tombstone; removals from YouTube never auto-unstar `voice-wei` favorites.
 
 ## Architecture
 
@@ -174,6 +196,7 @@ every 5 minutes, or at once with "Try now". Trial on 2026-11-09: 8 lines read in
   each step resumable after a restart; the page asks for the list's state every 2 s while it works.
 - `yt_playlist_maker/net.py` is the only code that calls outside services: the User-Agent, the budgets, the kept
   answers and the backoff are there, so no other module can call without them.
-- Code map: `reading.py` (the model, artist names), `choosing.py` (candidates and picks), `videos.py` (the steps
-  and the match rule), `playlists.py` (making the playlist), `google_auth.py` (sign-in), `worker.py`, `web.py`,
-  `store.py` (the database), and one module per service.
+- Code map: `reading.py` (the model, artist names), `choosing.py` (candidates and picks), `importing.py` (direct
+  song-list parsing), `sync.py` (HKDF/AES-GCM encrypted library sync and two-way YouTube sync), `videos.py` (the
+  steps and the match rule), `playlists.py` (making and updating playlists), `google_auth.py` (sign-in),
+  `worker.py`, `web.py`, `store.py` (the database), and one module per service.

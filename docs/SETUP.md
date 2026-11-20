@@ -60,3 +60,19 @@ The app needs two things from a Google Cloud project of its own (SPEC.md, "Ident
   delete YouTube data" also deletes what YouTube told the app (PRIVACY.md). Google's own page for it:
   https://security.google.com/settings/security/permissions.
 - **Another account**: each sign-in is one Google account; signing out and in again switches it.
+
+## Optional: encrypted library sync (voice-wei <-> YouTube)
+
+To keep starred songs in a `voice-wei` browser automatically synced with a YouTube playlist on this computer:
+
+1. Generate a random sync key and its server auth hash:
+   ```bash
+   uv run python -m yt_playlist_maker.sync --init-key
+   ```
+2. Place the printed `{"tokenSha256": "..."}` file on your `voice-wei` host at `shared/sync-auth.json` (beside
+   `releases/`, mode `0600`, outside the served webroot).
+3. Add `sync_url` (for example `https://your-host/voice-wei/proxy.php`) and `sync_key` to `config.local.json`
+   (and optionally `sync_playlist_id` to sync into an existing YouTube playlist, `sync_title`, `sync_visibility`,
+   and `sync_minutes`), then restart `yt-playlist-maker`.
+4. Open `voice-wei` Lyrics -> Settings -> Encrypted Library Sync, paste the same `sync_key`, and press
+   **Save key & sync**.

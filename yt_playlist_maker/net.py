@@ -44,6 +44,7 @@ SERVICES = {
     'wikidata': Service('Wikidata', 2.0, 90, CONTACT_USER_AGENT),
     'youtube': Service('YouTube', 0.0, 30, GOOGLE_USER_AGENT),
     'google': Service('Google sign-in', 0.0, 0, GOOGLE_USER_AGENT),
+    'sync': Service('Library sync', 1.0, 0, GOOGLE_USER_AGENT),
 }
 
 
@@ -118,6 +119,12 @@ def call(service: str, method: str, url: str, *, params: dict | None = None, bod
     if keep:
         store.keep_answer(service, key, data)
     return data
+
+
+def raw(service: str, method: str, url: str, *, params: dict | None = None, data: bytes | None = None,
+        headers: dict | None = None) -> requests.Response:
+    """One non-JSON or conditional request through the service lock, User-Agent, timeout and retry rules."""
+    return _send(service, method, url, params=params, body=None, form=data, headers=headers)
 
 
 def _spend(units: int, search: bool) -> None:

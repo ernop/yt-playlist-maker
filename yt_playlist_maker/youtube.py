@@ -3,6 +3,7 @@
 videos, channels, playlistItems and playlists list 1 unit; playlists and playlistItems insert 50 units."""
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import re
 
 from . import net
@@ -38,14 +39,14 @@ def _read(path: str, params: dict, key: str, *, units: int = 1, search: bool = F
                     keep=keep)
 
 
-def videos(ids: list[str], key: str, *, keep: bool = True) -> dict[str, dict]:
+def videos(ids: list[str], key: str = '', *, keep: bool = True, token: str = '') -> dict[str, dict]:
     """What YouTube says of each video it still has, by id: title, channel_id, channel, duration_s, playable."""
     found = {}
     unique = list(dict.fromkeys(ids))
     for start in range(0, len(unique), PAGE):
         chunk = unique[start:start + PAGE]
         data = _read('videos', {'part': 'snippet,contentDetails,status', 'id': ','.join(chunk),
-                                'maxResults': PAGE}, key, keep=keep)
+                                'maxResults': PAGE}, key, keep=keep, token=token)
         for item in data.get('items', []):
             snippet, details, status = item.get('snippet', {}), item.get('contentDetails', {}), item.get('status', {})
             region = details.get('regionRestriction') or {}
@@ -106,10 +107,10 @@ def uploads(playlist_id: str, key: str) -> list[dict]:
     return found
 
 
-def search(query: str, key: str) -> list[str]:
+def search(query: str, key: str = '', *, token: str = '') -> list[str]:
     """The first 10 music videos YouTube finds for the query: one of the day's searches."""
     data = _read('search', {'part': 'snippet', 'q': query, 'type': 'video', 'videoCategoryId': '10',
-                            'maxResults': 10, 'regionCode': COUNTRY}, key, units=0, search=True)
+                            'maxResults': 10, 'regionCode': COUNTRY}, key, units=0, search=True, token=token)
     return [item['id']['videoId'] for item in data.get('items', []) if item.get('id', {}).get('videoId')]
 
 
@@ -155,3 +156,59 @@ def playlist_videos(token: str, playlist_id: str) -> list[str] | None:
         page = data.get('nextPageToken', '')
         if not page:
             return found
+
+
+def _epoch_ms(iso_text: str) -> int:
+    if not iso_text:
+        return 0
+    try:
+        dt = datetime.fromisoformat(iso_text.replace('Z', '+00:00'))
+    except ValueError:
+        return 0
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return int(dt.timestamp() * 1000)
+
+
+def playlist_items(playlist_id: str, key: str = '', *, token: str = '', keep: bool = False) -> list[dict] | None:
+    """The items in a playlist with title, channel, and when each was added (1 unit per 50 items); None on 404."""
+    found, page = [], ''
+    while True:
+        params = {'part': 'snippet,contentDetails', 'playlistId': playlist_id, 'maxResults': PAGE}
+        if page:
+            params['pageToken'] = page
+        try:
+            data = _read('playlistItems', params, key, keep=keep, token=token)
+        except net.ServiceError as exc:
+            if exc.status == 404:
+                return None
+            raise
+        for item in data.get('items', []):
+            snippet = item.get('snippet') or {}
+            details = item.get('contentDetails') or {}
+            vid = details.get('videoId') or (snippet.get('resourceId') or {}).get('videoId') or ''
+            if not vid:
+                continue
+            found.append({
+                'video_id': vid,
+                'title': snippet.get('title', ''),
+                'channel': snippet.get('videoOwnerChannelTitle') or snippet.get('channelTitle', ''),
+                'added_at_ms': _epoch_ms(snippet.get('publishedAt', '')),
+            })
+        page = data.get('nextPageToken', '')
+        if not page:
+            return found
+
+
+def playlist_info(playlist_id: str, key: str = '', *, token: str = '') -> dict | None:
+    """The playlist's id, title and visibility: 1 unit. None when YouTube does not return it."""
+    data = _read('playlists', {'part': 'snippet,status', 'id': playlist_id}, key, keep=False, token=token)
+    items = data.get('items') or []
+    if not items:
+        return None
+    item = items[0]
+    return {
+        'id': item['id'],
+        'title': (item.get('snippet') or {}).get('title', ''),
+        'visibility': (item.get('status') or {}).get('privacyStatus', 'unlisted'),
+    }

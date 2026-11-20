@@ -1,8 +1,10 @@
 # yt-playlist-maker
 
 Type a list, one line each: a singer, a band, an era, a genre, or any words ("something for a rainy Sunday
-morning"). For each line the app picks the 2 to 5 songs most like it, finds each song's video on YouTube, and
-makes one YouTube playlist of them, unlisted by default, so anyone you send the link to can play it.
+morning"), OR switch to **From a song list** to import exported JSON (`voice-wei-library` or generic), YouTube
+video/playlist links, or `Artist - Song` lines directly into a new or existing YouTube playlist. Optional
+client-side AES-256-GCM encrypted sync keeps `voice-wei` favorites on a phone automatically synced with a YouTube
+playlist on this computer.
 
 - Songs come from [ListenBrainz](https://listenbrainz.org) (similar artists, listen counts, tag radio) and
   [MusicBrainz](https://musicbrainz.org); a local language model through [Ollama](https://ollama.com) only reads

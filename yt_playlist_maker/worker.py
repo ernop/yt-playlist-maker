@@ -1,5 +1,6 @@
 """One thread that does the work, one list at a time, so tabs and reloads never add requests: a list's next step,
-then a playlist to make, then, each hour, what YouTube's policies ask of kept data."""
+then a playlist to make, then encrypted library sync when configured, then, each hour, what YouTube's policies
+ask of kept data."""
 from __future__ import annotations
 
 import logging
@@ -7,7 +8,7 @@ import threading
 import time
 from datetime import timedelta
 
-from . import google_auth, listenbrainz, lists, model, net, playlists, store, videos, youtube
+from . import google_auth, listenbrainz, lists, model, net, playlists, store, sync, videos, youtube
 from .config import Config
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ class Worker(threading.Thread):
         self.cfg = cfg
         self.stopped = threading.Event()
         self.upkept = 0.0
+        self.synced = 0.0
 
     def run(self) -> None:
         while not self.stopped.wait(POLL_SECONDS):
@@ -42,6 +44,9 @@ class Worker(threading.Thread):
         playlist_id = _due('playlists', "step = 'saving'", key='list_id')
         if playlist_id:
             save(self.cfg, playlist_id)
+        if sync.configured(self.cfg) and time.monotonic() - self.synced >= self.cfg.sync_minutes * 60:
+            self.synced = time.monotonic()
+            sync.run(self.cfg, force=False)
 
 
 def _due(table: str, where: str, key: str = 'id') -> int | None:
@@ -73,7 +78,7 @@ def advance(cfg: Config, list_id: int) -> None:
             lists.note(list_id, wait_until=_later(), wait_reason=str(exc), tries=tries, progress='')
         else:
             lists.note(list_id, error=str(exc), progress='')
-    except (lists.Failed, model.BadAnswer, youtube.NoKey, listenbrainz.NoToken) as exc:
+    except (lists.Failed, model.BadAnswer, youtube.NoKey, listenbrainz.NoToken, google_auth.SignInNeeded) as exc:
         lists.note(list_id, error=str(exc), progress='')
     except Exception as exc:
         logger.exception('List %s failed at %s', list_id, step)
@@ -90,12 +95,12 @@ def save(cfg: Config, list_id: int) -> None:
         if passing:
             _playlist(list_id, wait_until=_later(), wait_reason=str(exc))
         else:
-            _playlist(list_id, error=str(exc))
+            _playlist(list_id, step='failed', error=str(exc), wait_until=None, wait_reason='')
     except (google_auth.SignInNeeded, lists.Failed) as exc:
-        _playlist(list_id, error=str(exc))
+        _playlist(list_id, step='failed', error=str(exc), wait_until=None, wait_reason='')
     except Exception as exc:
         logger.exception('The playlist of list %s failed', list_id)
-        _playlist(list_id, error=f'{type(exc).__name__}: {exc}')
+        _playlist(list_id, step='failed', error=f'{type(exc).__name__}: {exc}', wait_until=None, wait_reason='')
 
 
 def _playlist(list_id: int, **fields) -> None:
@@ -114,6 +119,7 @@ def upkeep(cfg: Config) -> dict:
     done = {'answers_deleted': store.forget_answers('youtube', net.now() - timedelta(days=videos.KEEP_DAYS))}
     done['videos'] = videos.refresh(cfg.youtube_api_key)
     done['playlists'] = refresh_playlists(cfg)
+    done['sync_playlist'] = sync.refresh_playlist(cfg)
     return done
 
 
@@ -155,4 +161,5 @@ def forget_youtube() -> dict:
         con.execute('UPDATE videos SET yt_title = NULL, yt_channel = NULL, yt_duration_s = NULL, yt_checked = NULL')
         links = con.execute('UPDATE playlists SET youtube_id = NULL, yt_checked = NULL WHERE youtube_id IS NOT NULL'
                             ).rowcount
+    links += sync.forget_youtube()
     return {'answers': store.forget_answers('youtube'), 'videos': found, 'playlist_links': links}

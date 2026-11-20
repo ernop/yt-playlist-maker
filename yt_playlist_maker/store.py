@@ -1,5 +1,5 @@
 """The database, data/app.sqlite3: his lists and what was found for them, the kept answers of outside services,
-and the YouTube budgets used each day. Times are RFC 3339 in UTC."""
+the encrypted library sync state, and the YouTube budgets used each day. Times are RFC 3339 in UTC."""
 from __future__ import annotations
 
 import contextlib
@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS lists (
     created TEXT NOT NULL,
     text TEXT NOT NULL,
     songs_per_line INTEGER NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'similar', -- similar, direct
+    title TEXT NOT NULL DEFAULT '',
+    target_playlist_id TEXT NOT NULL DEFAULT '',
     step TEXT NOT NULL,              -- reading, choosing, videos, ready, failed
     progress TEXT NOT NULL DEFAULT '',
     error TEXT NOT NULL DEFAULT '',
@@ -29,7 +32,7 @@ CREATE TABLE IF NOT EXISTS lines (
     list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
     position INTEGER NOT NULL,
     text TEXT NOT NULL,
-    reading TEXT,                    -- JSON, reading.py
+    reading TEXT,                    -- JSON, reading.py or import metadata
     chosen INTEGER NOT NULL DEFAULT 0,
     pool TEXT NOT NULL DEFAULT '[]', -- JSON, the next candidates, choosing.py
     error TEXT NOT NULL DEFAULT ''
@@ -52,7 +55,7 @@ CREATE TABLE IF NOT EXISTS videos (
     recording_mbid TEXT PRIMARY KEY,
     state TEXT NOT NULL,             -- found, none, gone
     video_id TEXT,
-    source TEXT NOT NULL DEFAULT '', -- musicbrainz, wikidata, channel, search
+    source TEXT NOT NULL DEFAULT '', -- musicbrainz, wikidata, channel, search, import, sync
     looked TEXT NOT NULL,
     steps TEXT NOT NULL DEFAULT '',  -- the steps tried, comma-separated
     yt_title TEXT,                   -- YouTube's: checked again or deleted within 30 days
@@ -68,10 +71,31 @@ CREATE TABLE IF NOT EXISTS playlists (
     youtube_id TEXT,                 -- YouTube's: checked again or deleted within 30 days
     yt_checked TEXT,
     added INTEGER NOT NULL DEFAULT 0,
+    skipped INTEGER NOT NULL DEFAULT 0,
     error TEXT NOT NULL DEFAULT '',
     wait_until TEXT,
     wait_reason TEXT NOT NULL DEFAULT '',
     created TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sync_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    etag TEXT NOT NULL DEFAULT '',
+    last_pull TEXT,
+    last_push TEXT,
+    last_error TEXT NOT NULL DEFAULT '',
+    wait_until TEXT,
+    wait_reason TEXT NOT NULL DEFAULT '',
+    playlist_id TEXT NOT NULL DEFAULT '',
+    playlist_title TEXT NOT NULL DEFAULT '',
+    playlist_visibility TEXT NOT NULL DEFAULT 'unlisted',
+    yt_checked TEXT,
+    favorites_count INTEGER NOT NULL DEFAULT 0,
+    synced_count INTEGER NOT NULL DEFAULT 0,
+    pending_count INTEGER NOT NULL DEFAULT 0,
+    unavailable_count INTEGER NOT NULL DEFAULT 0,
+    pulled_from_youtube INTEGER NOT NULL DEFAULT 0,
+    synced_ids_json TEXT NOT NULL DEFAULT '[]',
+    snapshot_json TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS answers (
     service TEXT NOT NULL,
@@ -87,6 +111,14 @@ CREATE TABLE IF NOT EXISTS usage (
     PRIMARY KEY (budget, day)
 );
 """
+
+MIGRATIONS = (
+    ('lists', 'mode', "TEXT NOT NULL DEFAULT 'similar'"),
+    ('lists', 'title', "TEXT NOT NULL DEFAULT ''"),
+    ('lists', 'target_playlist_id', "TEXT NOT NULL DEFAULT ''"),
+    ('playlists', 'skipped', 'INTEGER NOT NULL DEFAULT 0'),
+    ('sync_state', 'synced_ids_json', "TEXT NOT NULL DEFAULT '[]'"),
+)
 
 _path: Path = DATA / 'app.sqlite3'
 _write = threading.Lock()
@@ -127,6 +159,10 @@ def setup() -> None:
     with db() as con:
         con.execute('PRAGMA journal_mode = WAL')
         con.executescript(SCHEMA)
+        for table, column, definition in MIGRATIONS:
+            cols = {row['name'] for row in con.execute(f'PRAGMA table_info({table})')}
+            if column not in cols:
+                con.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
 
 
 def answer(service: str, key: str, fresh_after: datetime):

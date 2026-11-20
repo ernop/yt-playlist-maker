@@ -69,3 +69,28 @@ def test_delete_youtube_data_works_when_google_cannot_be_reached(client, session
     assert left['open-data']['video_id'] == 'v2' and left['open-data']['yt_title'] is None
     with store.db() as con:
         assert con.execute("SELECT count(*) FROM answers WHERE service = 'youtube'").fetchone()[0] == 0
+
+
+def test_direct_list_api_and_sync_endpoints(client):
+    payload = json.dumps({
+        'format': 'voice-wei-library',
+        'version': 1,
+        'title': 'Car Stars',
+        'songs': [{'videoId': 'abc12345678', 'name': 'Roads', 'artist': 'Portishead'}],
+    })
+    reply = client.post('/api/lists', json={'mode': 'direct', 'text': payload}, headers=HOST)
+    assert reply.status_code == 201
+    shown = client.get(f'/api/lists/{reply.json["id"]}', headers=HOST).json
+    assert shown['mode'] == 'direct'
+    assert shown['title'] == 'Car Stars'
+    assert shown['step'] == 'videos'
+
+    state = client.get('/api/state', headers=HOST).json
+    assert 'sync' in state and state['sync']['configured'] is False
+    assert state['limits']['direct_songs'] >= 1000
+
+    sync_info = client.get('/api/sync', headers=HOST).json
+    assert sync_info['songs'] == []
+
+    sync_now = client.post('/api/sync/now', json={}, headers=HOST)
+    assert sync_now.status_code == 400 and 'config.local.json' in sync_now.json['error']

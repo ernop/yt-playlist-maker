@@ -5,15 +5,27 @@ import json
 
 
 class FakeReply:
-    def __init__(self, status: int = 200, data=None, headers: dict | None = None):
+    def __init__(self, status: int = 200, data=None, headers: dict | None = None, content: bytes | None = None):
         self.status_code = status
         self.ok = status < 400
         self._data = data
         self.headers = headers or {}
-        self.text = json.dumps(data)
+        if content is not None:
+            self.content = content
+            self.text = content.decode('utf-8', errors='replace')
+        elif data is None:
+            self.content = b''
+            self.text = ''
+        else:
+            self.text = json.dumps(data)
+            self.content = self.text.encode('utf-8')
         self.reason = 'reason'
 
     def json(self):
+        if self._data is None and self.content:
+            return json.loads(self.content.decode('utf-8'))
+        if self._data is None:
+            raise ValueError('empty body')
         return self._data
 
 
