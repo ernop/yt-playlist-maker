@@ -554,7 +554,9 @@ function renderState(state) {
     el('tr', {}, el('td', {}, 'YouTube key, to find videos'), yes(s.youtube_key, 'Set', 'Not set: youtube_api_key in config.local.json')),
     el('tr', {}, el('td', {}, 'Google sign-in client'), yes(s.google_client, 'Set', 'Not set: google_client_id and google_client_secret in config.local.json')),
     el('tr', {}, el('td', {}, 'Signed in to YouTube, to make playlists'), yes(s.signed_in, 'Yes', 'No')),
-    el('tr', {}, el('td', {}, 'Encrypted library sync'), yes(s.sync_configured, 'Configured', 'Optional: sync_url and sync_key in config.local.json')),
+    el('tr', {}, el('td', {}, 'Encrypted library sync'), s.sync_configured
+      ? el('td', { class: 'good' }, 'Configured')
+      : el('td', {}, 'Optional: sync_url and sync_key in config.local.json')),
     el('tr', {}, el('td', {}, 'Language model'), el('td', {}, s.language_model)),
     el('tr', {}, el('td', {}, 'YouTube searches left today'), el('td', {}, `${number(left.searches)} of ${number(left.searches_budget)}`)),
     el('tr', {}, el('td', {}, 'YouTube units left today'), el('td', {}, `${number(left.units)} of ${number(left.units_budget)}, new at ${clock(left.new_at)}`)));
